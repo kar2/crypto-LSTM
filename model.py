@@ -1,4 +1,5 @@
 import tensorflow as tf
+import tensorboard
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -7,6 +8,11 @@ import matplotlib.pyplot as plt
 train_ratio = 0.7
 learning_rate = 0.1
 num_iters = 100
+
+global prev_output
+global prev_cell_state
+global weight
+global bias
 # Load data into dataframe
 # Drop unneeded dataframe columns
 df = pd.read_csv('bitcoin.csv').drop(['Volume_(Currency)','Weighted_Price','Volume_(BTC)'], axis=1)
@@ -29,37 +35,32 @@ def normalize(list):
     return normalized_list
 
 # Split into x and y train and test data
-x_train = normalize(train)
-y_train = np.append(x_train[1:], x_train[-1])
+x_train = np.array(normalize(train)[:num_iters])
 
-x_test = normalize(test)
-y_test = np.append(x_test[1:], x_test[-1])
+y_train = np.append(x_train[1:], x_train[-1])[:num_iters]
+
+x_test = np.array(normalize(test)[:num_iters])
+y_test = np.append(x_test[1:], x_test[-1])[:num_iters]
 
 
 #Tensorflow stuff
+weight = tf.Variable(0.5, name='weight')
+bias = tf.Variable(0.0, name='bias')
 
-# Gate weights
-forget_weight = tf.Variable(0.5, name='forget_weight')
-input_weight = tf.Variable(1.0, name='input_weight')
-candidate_weight = tf.Variable(1.0, name='candidate_weight')
-output_weight = tf.Variable(1.0, name='output_weight')
+curr_input = tf.placeholder(tf.float32, name='xt')
+target = tf.placeholder(tf.float32, name='yt')
 
-# Gate biases
-forget_bias = tf.Variable(0.0, name='forget_bias')
-input_bias = tf.Variable(0.0, name='input_bias')
-candidate_bias = tf.Variable(0.0, name='candidate_bias')
-output_bias = tf.Variable(0.0, name='output_bias')
+prev_output = tf.Variable(0.0, name='prev_output') # Output from last LSTM cell
+prev_cell_state = tf.Variable(0.0, name='prev_cell_state')
 
-# Current input, previous output, and previous cell state tensors
-curr_input = tf.placeholder(dtype=tf.float32, name='xt')
-prev_output = 0.0 # Output from last LSTM cell
-prev_cell_state = 0.0 # Cell state from last LSTM cell
-
-# prev_output = tf.placeholder_with_default(input=0, shape=None, name='ht-1')
-# prev_cell_state = tf.placeholder_with_default(input=0, shape=None, name='previous_cell_state')
-
-# Placeholder for real values
-target = tf.placeholder(dtype=tf.float32, name='yt')
+# prediction = lstm(curr_input, prev_output, prev_cell_state) # Keep track of each prediction
+#
+# # Placeholder for real values
+# target = tf.placeholder(dtype=tf.float32, name='yt')
+#
+# cost = tf.square(prediction-target)
+# opt = tf.train.RMSPropOptimizer(learning_rate=learning_rate)
+# minimize = opt.minimize(cost)
 
 # LSTM layer values
 def sigmoid_layer(input, weight, bias):
@@ -68,56 +69,57 @@ def sigmoid_layer(input, weight, bias):
 def tanh_layer(input, weight, bias):
     return tf.tanh(tf.add(tf.multiply(weight, input), bias))
 
-def lstm_cell(input, prev_out, prev_cell):
-    print("input: " + str(input))
-    # print("prev_out: " + str(prev_out))
-    # print("prev_cell: " + str(prev_cell))
-    layer_op_input = input+prev_out
-    # print("Layer op input: "+ str(layer_op_input))
+with tf.Session() as sess:
+    init = tf.global_variables_initializer()
+# cost = tf.square(prediction-target)
+# opt = tf.train.RMSPropOptimizer(learning_rate=learning_rate)
+# minimize = opt.minimize(cost)
 
-    forget_layer = sigmoid_layer(layer_op_input, forget_weight, forget_bias)
-    # print("Forget layer " + str(forget_layer.eval()))
+    sess.run(init)
 
-    input_layer = sigmoid_layer(layer_op_input, input_weight, input_bias)
-    # print("Input layer " + str(input_layer.eval()))
+    def lstm(input, prev_out, prev_cell):
+        #print("input: " + str(input))
+        layer_op_input = input + prev_out
+        forget_layer = sigmoid_layer(layer_op_input, weight, bias)
+        input_layer = sigmoid_layer(layer_op_input, weight, bias)
+        candidate_layer = tanh_layer(layer_op_input, weight, bias)
+        output_layer = sigmoid_layer(layer_op_input, weight, bias)
+        # Values to update for next LSTM cell
+        cell_state = tf.add(tf.multiply(forget_layer, prev_cell), tf.multiply(input_layer, candidate_layer))
+        output = tf.multiply(output_layer, tf.tanh(cell_state))
+        print("Output shape: " + str(output.shape))
+        #print("Prediction")
+        # prediction.assign(output)
+        sess.run(prev_output.assign(output))
+        sess.run(prev_cell_state.assign(cell_state))
+        # Update state and previous output
+        return output
 
-    candidate_layer = tanh_layer(layer_op_input, candidate_weight, candidate_bias)
-    # print("Candidate layer " + str(candidate_layer.eval()))
+    prediction = lstm(curr_input, prev_output, prev_cell_state) # Keep track of each prediction
 
-    output_layer = sigmoid_layer(layer_op_input, output_weight, output_bias)
-    # print("Output layer " + str(output_layer.eval()))
-
-    # Values to update for next LSTM cell
-    cell_state = tf.add(tf.multiply(forget_layer, prev_cell), tf.multiply(input_layer, candidate_layer))
-    # print("Cell state: " + str(cell_state.eval()))
-    output = tf.multiply(output_layer, tf.tanh(cell_state))
-    print("Prediction: " + str(output.eval()))
-    # Update state and previous output
-    return {'output': output.eval(), 'cell_state': cell_state.eval()}
+    cost = tf.square(prediction-target)
+    opt = tf.train.RMSPropOptimizer(learning_rate=learning_rate)
+    minimize = opt.minimize(cost)
 
 # Define loss function
 # loss = tf.square()
-
-init = tf.global_variables_initializer()
-output_list = []
-loss_list = []
-with tf.Session() as sess:
+    # init = tf.global_variables_initializer()
+    # cost = tf.square(prediction-target)
+    # opt = tf.train.RMSPropOptimizer(learning_rate=learning_rate)
+    # minimize = opt.minimize(cost)
     # cost = tf.square(true_val-cell['output'])
-    sess.run(init)
+    # feed = {curr_input: x_train, target: y_train}
     for i in range(num_iters):
-        print("Pass #" + str(i))
-        cell = lstm_cell(x_train[i], prev_output, prev_cell_state)
-        print("True value: " + str(y_train[i]))
-        prev_output = cell['output']
-        output_list.append(prev_output)
-        loss_list.append((y_train[i]-cell['output'])**2)
-        prev_cell_state = cell['cell_state']
+        feed = {curr_input: x_train[i], target: y_train[i]}
+        print((y_train[i]-x_train[i])**2)
+    result = sess.run([cost,minimize], feed_dict=feed)
+    print(result)
 
-plt.figure(0)
-plt.plot(y_train[:num_iters])
-plt.plot(output_list[:num_iters])
-plt.show()
-
-plt.figure(1)
-plt.plot(loss_list)
-plt.savefig('loss.png')
+# plt.figure(0)
+# plt.plot(y_train[:num_iters])
+# plt.plot(output_list[:num_iters])
+# plt.show()
+#
+# plt.figure(1)
+# plt.plot(loss_list)
+# plt.savefig('loss.png')
