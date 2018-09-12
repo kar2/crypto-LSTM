@@ -90,7 +90,6 @@ with tf.Session() as sess:
         prediction_list.append(prediction.eval())
         cost_list.append(cost.eval())
         print(step)
-
 plt.plot(prediction_list)
 # plt.plot(prediction_list)
 plt.show()
