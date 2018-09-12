@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 
 train_ratio = 0.7
-learning_rate = 0.1
+learning_rate = 0.5
 num_iters = 100
 keep_prob = 0.8 # Keep probability for forget layer
 
@@ -33,11 +33,11 @@ test = normalize(data[np.arange(test_start, test_end)])
 
 
 # Split into x and y train and test data
-x_train = train[:num_iters]
-y_train = train[1:num_iters+1]
+x_train = (train[:num_iters])
+y_train = (train[1:num_iters+1])
 
-# x_test = np.array(normalize(test)[:num_iters])
-# y_test = np.append(x_test[1:], x_test[-1])[:num_iters]
+x_test = (test[:num_iters])
+y_test = (test[1:num_iters+1])
 
 
 #Tensorflow stuff
@@ -45,8 +45,8 @@ weight = tf.Variable(0.5, dtype=tf.float64)
 keep_prob_weight = tf.Variable(keep_prob, dtype=tf.float64)
 bias = tf.Variable(0.0, dtype=tf.float64)
 
-curr_input = tf.placeholder(tf.float64, shape=[1])
-target = tf.placeholder(tf.float64, shape=[1])
+curr_input = tf.placeholder(tf.float64, shape=(), name='input')
+target = tf.placeholder(tf.float64, shape=(), name='target')
 
 prev_output = 0.0 # Output from last LSTM cell
 prev_cell_state = 0.0 # Previous cell state
@@ -59,8 +59,6 @@ def tanh_layer(input, weight, bias):
     return tf.tanh(tf.add(tf.multiply(weight, input), bias))
 
 def lstm(input, prev_out, prev_cell):
-    #print("input: " + str(input))
-    # layer_op_input = input + prev_out
     forget_layer = sigmoid_layer(prev_out, weight, bias)
     input_layer = sigmoid_layer(input, weight, bias)
     candidate_layer = tanh_layer(input, weight, bias)
@@ -76,21 +74,23 @@ def lstm(input, prev_out, prev_cell):
 prediction = lstm(curr_input, prev_output, prev_cell_state) # Keep track of each prediction
 cost = tf.square(prediction-target)
 opt = tf.train.RMSPropOptimizer(learning_rate=learning_rate)
-minimize = opt.minimize(cost)
+minimize = opt.minimize(cost, var_list=[weight, bias, keep_prob_weight])
+prediction_list = []
+cost_list = []
+feed = {curr_input:x_train, target:y_train}
 
 with tf.Session() as sess:
     init = tf.global_variables_initializer()
     sess.run(init)
-    feed = {curr_input: x_train, target: y_train}
-    result = sess.run([cost, minimize], feed_dict=feed)
-    print(result)
-    # print(result)
-    # print(weight)
-    # for i in range(num_iters):
-    #     feed = {curr_input: x_train, target: y_train}
-    #     print((y_train[i]-x_train[i])**2)
-    #     result = sess.run([cost,minimize], feed_dict=feed)
-    #     print(result)
-plt.plot(x_train)
-plt.plot(y_train)
+    for i in range(num_iters):
+        print("Step #: " + str(i))
+        x = x_train[i]
+        y = y_train[i]
+        step = sess.run([prediction, cost], feed_dict={curr_input:x, target:y})
+        prediction_list.append(prediction.eval())
+        cost_list.append(cost.eval())
+        print(step)
+
+plt.plot(prediction_list)
+# plt.plot(prediction_list)
 plt.show()
