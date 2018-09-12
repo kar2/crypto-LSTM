@@ -39,7 +39,6 @@ y_train = (train[1:num_iters+1])
 x_test = (test[:num_iters])
 y_test = (test[1:num_iters+1])
 
-
 #Tensorflow stuff
 weight = tf.Variable(0.5, dtype=tf.float64)
 keep_prob_weight = tf.Variable(keep_prob, dtype=tf.float64)
