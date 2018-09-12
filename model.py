@@ -1,48 +1,25 @@
+import data
+
 import tensorflow as tf
-import tensorboard
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 
-train_ratio = 0.7
-learning_rate = 0.5
-num_iters = 100
-keep_prob = 0.8 # Keep probability for forget layer
 
-# Load data into dataframe
-# Drop unneeded dataframe columns
-df = pd.read_csv('bitcoin.csv').drop(['Volume_(Currency)','Weighted_Price','Volume_(BTC)'], axis=1)
-dataset_size = df.shape[0]
+learning_rate = 0.1
+num_steps = data.num_steps
 
-def normalize(list):
-    normalized_list = []
-    for i in range(1,len(list)):
-        normalized_list.append((list[i]-list[i-1])/list[i])
-    return normalized_list
-
-
-# Train and test data
-data = df['Close'].as_matrix().astype(float) # Using close data for learning
-train_start = 0
-train_end = int(np.floor(train_ratio*dataset_size))
-test_start = train_end
-test_end = dataset_size
-train = normalize(data[np.arange(train_start, train_end)])
-test = normalize(data[np.arange(test_start, test_end)])
-
-
-# Split into x and y train and test data
-x_train = (train[:num_iters])
-y_train = (train[1:num_iters+1])
-
-x_test = (test[:num_iters])
-y_test = (test[1:num_iters+1])
+ # Get train and test data
+x_train = data.get('x_train')
+y_train = data.get('y_train')
+x_test = data.get('x_test')
+y_test = data.get('y_test')
 
 #Tensorflow stuff
 weight = tf.Variable(0.5, dtype=tf.float64)
-keep_prob_weight = tf.Variable(keep_prob, dtype=tf.float64)
 bias = tf.Variable(0.0, dtype=tf.float64)
+scale = tf.Variable(5.0, dtype=tf.float64)
 
 curr_input = tf.placeholder(tf.float64, shape=(), name='input')
 target = tf.placeholder(tf.float64, shape=(), name='target')
@@ -70,25 +47,33 @@ def lstm(input, prev_out, prev_cell):
     # Update state and previous output
     return output
 
-prediction = lstm(curr_input, prev_output, prev_cell_state) # Keep track of each prediction
+prediction = tf.multiply(scale, lstm(curr_input, prev_output, prev_cell_state)) # Keep track of each prediction
 cost = tf.square(prediction-target)
 opt = tf.train.RMSPropOptimizer(learning_rate=learning_rate)
-minimize = opt.minimize(cost, var_list=[weight, bias, keep_prob_weight])
+minimize = opt.minimize(cost, var_list=[weight, scale])
 prediction_list = []
 cost_list = []
-feed = {curr_input:x_train, target:y_train}
+scale_list = []
 
 with tf.Session() as sess:
     init = tf.global_variables_initializer()
     sess.run(init)
-    for i in range(num_iters):
+    for i in range(num_steps):
         print("Step #: " + str(i))
         x = x_train[i]
         y = y_train[i]
-        step = sess.run([prediction, cost], feed_dict={curr_input:x, target:y})
-        prediction_list.append(prediction.eval())
-        cost_list.append(cost.eval())
-        print(step)
-plt.plot(prediction_list)
+        feed = {curr_input:x, target:y}
+        curr_pred = sess.run(prediction, feed_dict=feed)
+        curr_cost = sess.run(cost, feed_dict=feed)
+        opt_op = sess.run(minimize, feed_dict=feed)
+        prediction_list.append(curr_pred)
+        cost_list.append(curr_cost)
+        scale_list.append(scale.eval())
+        print("Prediction: " + str(curr_pred))
+        print("Cost: " + str(curr_cost))
+        print("Weight: " + str(weight.eval()))
+        print("Scale: " + str(scale.eval()))
+plt.plot(cost_list)
+# plt.plot(y_train)
 # plt.plot(prediction_list)
 plt.show()
