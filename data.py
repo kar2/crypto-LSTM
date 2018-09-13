@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 # Number of iterations for training
-num_steps = 3000
+num_train_steps = 50000
+num_test_steps = 300
 
 # Train vs test ratio
 train_ratio = 0.7
@@ -13,6 +13,7 @@ train_ratio = 0.7
 df = pd.read_csv('bitcoin.csv').drop(['Volume_(Currency)','Weighted_Price','Volume_(BTC)'], axis=1)
 dataset_size = df.shape[0]
 
+# Normalize data to predict changes in value rather than raw values
 def normalize(list):
     normalized_list = []
     for i in range(1,len(list)):
@@ -32,10 +33,10 @@ test = normalize(data[np.arange(test_start, test_end)])
 # Return processed data based on input
 def get(s):
     out = {
-        'x_train': train[:num_steps],
-        'y_train': train[1:num_steps+1],
-        'x_test': test[:num_steps],
-        'y_test': test[1:num_steps+1]
+        'x_train': train[:num_train_steps],
+        'y_train': train[1:num_train_steps+1],
+        'x_test': test[:num_test_steps],
+        'y_test': test[1:num_test_steps+1]
     }
     if s in out.keys():
         return out[s]
