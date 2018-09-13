@@ -2,8 +2,8 @@ import numpy as np
 import pandas as pd
 
 # Number of iterations for training
-num_train_steps = 50000
-num_test_steps = 300
+num_train_steps = 25000
+num_test_steps = 250
 
 # Train vs test ratio
 train_ratio = 0.7

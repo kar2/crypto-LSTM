@@ -79,9 +79,6 @@ def train(num_steps):
         prediction_list.append(curr_pred)
         cost_list.append(curr_cost)
         print("Prediction: " + str(curr_pred))
-        print("Cost: " + str(curr_cost))
-        print("Weight: " + str(weight.eval(sess)))
-        print("Scale: " + str(scale.eval(sess)))
     return {'Predictions': prediction_list, 'Costs': cost_list}
 
 def test(num_steps):
@@ -102,11 +99,4 @@ def test(num_steps):
         prediction_list.append(curr_pred)
         cost_list.append(curr_cost)
         print("Prediction: " + str(curr_pred))
-        print("Cost: " + str(curr_cost))
     return {'Predictions': prediction_list, 'Costs': cost_list}
-
-train = train(data.num_train_steps)
-test = test(data.num_test_steps)
-plt.plot(y_test)
-plt.plot(test['Predictions'])
-plt.show()
